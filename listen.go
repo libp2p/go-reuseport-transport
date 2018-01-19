@@ -20,6 +20,13 @@ func (l *listener) Close() error {
 	return l.Listener.Close()
 }
 
+// Listen listens on the given multiaddr.
+//
+// If reuseport is supported, it will be enabled for this listener and future
+// dials from this transport may reuse the port.
+//
+// Note: You can listen on the same multiaddr as many times as you want
+// (although only *one* listener will end up handling the inbound connection).
 func (t *Transport) Listen(laddr ma.Multiaddr) (manet.Listener, error) {
 	nw, naddr, err := manet.DialArgs(laddr)
 	if err != nil {
