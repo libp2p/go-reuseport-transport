@@ -50,12 +50,12 @@ func reuseDial(ctx context.Context, laddr *net.TCPAddr, network, raddr string) (
 	}
 
 	con, err := d.DialContext(ctx, network, raddr)
-	if err != nil {
-		return con, err
+	if err == nil {
+		return con, nil
 	}
 
 	if ReuseErrShouldRetry(err) && ctx.Err() == nil {
-		log.Debug("failed to reuse port, dialing with a random port")
+		log.Debugf("failed to reuse port, dialing with a random port: %s", err)
 		var d net.Dialer
 		con, err = d.DialContext(ctx, network, raddr)
 	}
