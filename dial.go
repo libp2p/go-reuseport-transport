@@ -87,10 +87,13 @@ func (n *network) makeDialer(network string) dialer {
 	// How many ports are we listening on.
 	var port = 0
 	for l := range n.listeners {
-		if port == 0 {
-			port = l.Addr().(*net.TCPAddr).Port
-		} else {
-			// > 1
+		newPort := l.Addr().(*net.TCPAddr).Port
+		switch {
+		case newPort == 0: // Any port, ignore (really, we shouldn't get this case...).
+		case port == 0: // Haven't selected a port yet, choose this one.
+			port = newPort
+		case newPort == port: // Same as the selected port, continue...
+		default: // Multiple ports, use the multi dialer
 			return newMultiDialer(unspec, n.listeners)
 		}
 	}
