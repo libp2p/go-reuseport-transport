@@ -45,7 +45,7 @@ gx-go --rewrite
 
 Please check [Gx](https://github.com/whyrusleeping/gx) and [Gx-go](https://github.com/whyrusleeping/gx-go) documentation for more information.
 
-For more information about how `go-reuseport-transport` is used in the libp2p context, you can see the [go-libp2p-conn](https://github.com/libp2p/go-libp2p-conn) module.
+This package is *currently* used by the [go-tcp-transport](https://github.com/libp2p/go-tcp-transport) libp2p transport and will likely be used by more libp2p transports in the future.
 
 ## Contribute
 
