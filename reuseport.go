@@ -8,10 +8,10 @@ import (
 	reuseport "github.com/libp2p/go-reuseport"
 )
 
-// ReuseErrShouldRetry diagnoses whether to retry after a reuse error.
+// reuseErrShouldRetry diagnoses whether to retry after a reuse error.
 // if we failed to bind, we should retry. if bind worked and this is a
 // real dial error (remote end didnt answer) then we should not retry.
-func ReuseErrShouldRetry(err error) bool {
+func reuseErrShouldRetry(err error) bool {
 	if err == nil {
 		return false // hey, it worked! no need to retry.
 	}
@@ -54,7 +54,7 @@ func reuseDial(ctx context.Context, laddr *net.TCPAddr, network, raddr string) (
 		return con, nil
 	}
 
-	if ReuseErrShouldRetry(err) && ctx.Err() == nil {
+	if reuseErrShouldRetry(err) && ctx.Err() == nil {
 		log.Debugf("failed to reuse port, dialing with a random port: %s", err)
 		var d net.Dialer
 		con, err = d.DialContext(ctx, network, raddr)

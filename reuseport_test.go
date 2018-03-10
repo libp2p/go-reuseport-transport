@@ -40,7 +40,7 @@ func TestReuseError(t *testing.T) {
 	}
 
 	for k, v := range cases {
-		if ReuseErrShouldRetry(k) != v {
+		if reuseErrShouldRetry(k) != v {
 			t.Fatalf("expected %t for %#v", v, k)
 		}
 	}
