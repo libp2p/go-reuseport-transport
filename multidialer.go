@@ -30,6 +30,28 @@ func (d *multiDialer) DialContext(ctx context.Context, network, addr string) (ne
 		return nil, err
 	}
 
+	// We pick the source *port* based on the following algorithm.
+	//
+	// 1. If we're dialing loopback, choose a source-port in order of
+	//    preference:
+	//   1. A port in-use by an explicit loopback listener.
+	//   2. A port in-use by a listener on an unspecified address (must
+	//      also be listening on localhost).
+	//   3. A port in-use by a listener on a global address. We don't have
+	//      any other better options (other than picking a random port).
+	// 2. If we're dialing a global address, choose a source-port in order
+	//    of preference:
+	//   1. A port in-use by a listener on an unspecified address (the most
+	//      general case).
+	//   2. A port in-use by a listener on the global address.
+	// 3. Fail on link-local dials (go-ipfs currently forbids this and I
+	//    figured we could try lifting this restriction later).
+	//
+	//
+	// Note: We *always* dial from the unspecified address (regardless of
+	// the port we pick). In the future, we could use netlink (on Linux) to
+	// figure out the right source address but we're going to punt on that.
+
 	ip := tcpAddr.IP
 	source := d.global
 	switch {
