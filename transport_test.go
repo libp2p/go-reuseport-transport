@@ -7,7 +7,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-func TestSingle(t *testing.T) {
+func TestNoneAndSingle(t *testing.T) {
 	var trA Transport
 	var trB Transport
 	laddr, _ := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/0")
@@ -16,11 +16,6 @@ func TestSingle(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer listenerA.Close()
-	listenerB, err := trB.Listen(laddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer listenerB.Close()
 
 	done := make(chan struct{})
 	go func() {
@@ -35,6 +30,34 @@ func TestSingle(t *testing.T) {
 	c, err := trB.Dial(listenerA.Multiaddr())
 	if err != nil {
 		t.Fatal(err)
+	}
+	<-done
+	c.Close()
+
+	listenerB, err := trB.Listen(laddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listenerB.Close()
+
+	done = make(chan struct{})
+	go func() {
+		defer close(done)
+		c, err := listenerA.Accept()
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Close()
+	}()
+
+	c, err = trB.Dial(listenerA.Multiaddr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual := c.LocalAddr().(*net.TCPAddr).Port
+	expected := listenerB.Addr().(*net.TCPAddr).Port
+	if actual != expected {
+		t.Errorf("expected to use port %d, used port %d", expected, actual)
 	}
 	<-done
 	c.Close()
