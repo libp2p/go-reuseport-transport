@@ -94,7 +94,7 @@ func newMultiDialer(unspec net.IP, listeners map[*listener]struct{}) dialer {
 			// find.
 			//
 			// TODO: Port priority? Addr priority?
-			if m.global != nil {
+			if m.global == nil {
 				m.global = &net.TCPAddr{
 					IP:   unspec,
 					Port: laddr.Port,
