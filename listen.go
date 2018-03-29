@@ -16,6 +16,7 @@ type listener struct {
 func (l *listener) Close() error {
 	l.network.mu.Lock()
 	delete(l.network.listeners, l)
+	l.network.dialer = nil
 	l.network.mu.Unlock()
 	return l.Listener.Close()
 }
