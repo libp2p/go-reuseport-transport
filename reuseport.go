@@ -1,4 +1,4 @@
-package tcpreuse
+package reusetransport
 
 import (
 	"context"
@@ -39,7 +39,7 @@ func reuseErrShouldRetry(err error) bool {
 }
 
 // Dials using reusport and then redials normally if that fails.
-func reuseDial(ctx context.Context, laddr *net.TCPAddr, network, raddr string) (net.Conn, error) {
+func reuseDial(ctx context.Context, laddr net.Addr, network, raddr string) (net.Conn, error) {
 	if laddr == nil {
 		return fallbackDialer.DialContext(ctx, network, raddr)
 	}

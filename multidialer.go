@@ -1,4 +1,4 @@
-package tcpreuse
+package reusetransport
 
 import (
 	"context"
@@ -8,16 +8,16 @@ import (
 )
 
 type multiDialer struct {
-	loopback    []*net.TCPAddr
-	unspecified []*net.TCPAddr
-	global      *net.TCPAddr
+	loopback    []net.Addr
+	unspecified []net.Addr
+	global      net.Addr
 }
 
 func (d *multiDialer) Dial(network, addr string) (net.Conn, error) {
 	return d.DialContext(context.Background(), network, addr)
 }
 
-func randAddr(addrs []*net.TCPAddr) *net.TCPAddr {
+func randAddr(addrs []net.Addr) net.Addr {
 	if len(addrs) > 0 {
 		return addrs[rand.Intn(len(addrs))]
 	}
@@ -25,9 +25,22 @@ func randAddr(addrs []*net.TCPAddr) *net.TCPAddr {
 }
 
 func (d *multiDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	tcpAddr, err := net.ResolveTCPAddr(network, addr)
-	if err != nil {
-		return nil, err
+	var ip net.IP
+	switch network {
+	case "tcp", "tcp4", "tcp6":
+		resolved, err := net.ResolveTCPAddr(network, addr)
+		if err != nil {
+			return nil, err
+		}
+		ip = resolved.IP
+	case "udp", "udp4", "udp6":
+		resolved, err := net.ResolveUDPAddr(network, addr)
+		if err != nil {
+			return nil, err
+		}
+		ip = resolved.IP
+	default:
+		return nil, net.UnknownNetworkError(network)
 	}
 
 	// We pick the source *port* based on the following algorithm.
@@ -52,7 +65,6 @@ func (d *multiDialer) DialContext(ctx context.Context, network, addr string) (ne
 	// the port we pick). In the future, we could use netlink (on Linux) to
 	// figure out the right source address but we're going to punt on that.
 
-	ip := tcpAddr.IP
 	source := d.global
 	switch {
 	case ip.IsLoopback():
@@ -68,19 +80,20 @@ func (d *multiDialer) DialContext(ctx context.Context, network, addr string) (ne
 			source = randAddr(d.unspecified)
 		}
 	default:
-		return nil, fmt.Errorf("undialable IP: %s", tcpAddr.IP)
+		return nil, fmt.Errorf("undialable IP: %s", ip)
 	}
 	return reuseDial(ctx, source, network, addr)
 }
 
-func newMultiDialer(unspec net.IP, listeners map[*listener]struct{}) dialer {
+func newMultiDialer(unspec net.IP, listenAddrs []net.Addr, network string) dialer {
 	m := new(multiDialer)
-	for l := range listeners {
-		laddr := l.Addr().(*net.TCPAddr)
+	for _, l := range listenAddrs {
+		ip := ipOf(l)
+		port := portOf(l)
 		switch {
-		case laddr.IP.IsLoopback():
-			m.loopback = append(m.loopback, laddr)
-		case laddr.IP.IsGlobalUnicast():
+		case ip.IsLoopback():
+			m.loopback = append(m.loopback, l)
+		case ip.IsGlobalUnicast():
 			// Different global ports? Crap.
 			//
 			// The *proper* way to deal with this is to, e.g., use
@@ -95,15 +108,26 @@ func newMultiDialer(unspec net.IP, listeners map[*listener]struct{}) dialer {
 			//
 			// TODO: Port priority? Addr priority?
 			if m.global == nil {
-				m.global = &net.TCPAddr{
-					IP:   unspec,
-					Port: laddr.Port,
+				switch network {
+				case "tcp4", "tcp6":
+					m.global = &net.TCPAddr{
+						IP:   unspec,
+						Port: port,
+					}
+				case "udp4", "udp6":
+					m.global = &net.UDPAddr{
+						IP:   unspec,
+						Port: port,
+					}
+				default:
+					panic("invalid network: must be either tcp4, tcp6, udp4 or udp6")
 				}
 			} else {
-				log.Warning("listening on external interfaces on multiple ports, will dial from %d, not %s", m.global, laddr)
+				log.Warning("listening on external interfaces on multiple ports, will dial from %d, not %s:%d",
+					m.global, ip, port)
 			}
-		case laddr.IP.IsUnspecified():
-			m.unspecified = append(m.unspecified, laddr)
+		case ip.IsUnspecified():
+			m.unspecified = append(m.unspecified, l)
 		}
 	}
 	return m
