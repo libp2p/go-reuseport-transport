@@ -1,4 +1,4 @@
-package tcpreuse
+package reusetransport
 
 import (
 	"net"
@@ -13,12 +13,25 @@ type listener struct {
 	network *network
 }
 
+type udpListener struct {
+	manet.PacketConn
+	network *network
+}
+
 func (l *listener) Close() error {
 	l.network.mu.Lock()
-	delete(l.network.listeners, l)
-	l.network.dialer = nil
+	delete(l.network.tcpListeners, l)
+	l.network.tcpDialer = nil
 	l.network.mu.Unlock()
 	return l.Listener.Close()
+}
+
+func (l *udpListener) Close() error {
+	l.network.mu.Lock()
+	delete(l.network.udpListeners, l)
+	l.network.udpDialer = nil
+	l.network.mu.Unlock()
+	return l.PacketConn.Close()
 }
 
 // Listen listens on the given multiaddr.
@@ -40,7 +53,7 @@ func (t *Transport) Listen(laddr ma.Multiaddr) (manet.Listener, error) {
 	case "tcp6":
 		n = &t.v6
 	default:
-		return nil, ErrWrongProto
+		return nil, ErrWrongListenProto
 	}
 
 	if !reuseport.Available() {
@@ -53,7 +66,7 @@ func (t *Transport) Listen(laddr ma.Multiaddr) (manet.Listener, error) {
 
 	if _, ok := nl.Addr().(*net.TCPAddr); !ok {
 		nl.Close()
-		return nil, ErrWrongProto
+		return nil, ErrWrongListenProto
 	}
 
 	malist, err := manet.WrapNetListener(nl)
@@ -70,11 +83,63 @@ func (t *Transport) Listen(laddr ma.Multiaddr) (manet.Listener, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	if n.listeners == nil {
-		n.listeners = make(map[*listener]struct{})
+	if n.tcpListeners == nil {
+		n.tcpListeners = make(map[*listener]struct{})
 	}
-	n.listeners[list] = struct{}{}
-	n.dialer = nil
+	n.tcpListeners[list] = struct{}{}
+	n.tcpDialer = nil
+
+	return list, nil
+}
+
+// ListenPacket is the UDP equivalent of `Listen`
+func (t *Transport) ListenPacket(laddr ma.Multiaddr) (manet.PacketConn, error) {
+	nw, naddr, err := manet.DialArgs(laddr)
+	if err != nil {
+		return nil, err
+	}
+	var n *network
+	switch nw {
+	case "udp4":
+		n = &t.v4
+	case "udp6":
+		n = &t.v6
+	default:
+		return nil, ErrWrongListenPacketProto
+	}
+
+	if !reuseport.Available() {
+		return manet.ListenPacket(laddr)
+	}
+	nl, err := reuseport.ListenPacket(nw, naddr)
+	if err != nil {
+		return manet.ListenPacket(laddr)
+	}
+
+	if _, ok := nl.LocalAddr().(*net.UDPAddr); !ok {
+		nl.Close()
+		return nil, ErrWrongListenPacketProto
+	}
+
+	malist, err := manet.WrapPacketConn(nl)
+	if err != nil {
+		nl.Close()
+		return nil, err
+	}
+
+	list := &udpListener{
+		PacketConn: malist,
+		network:    n,
+	}
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	if n.udpListeners == nil {
+		n.udpListeners = make(map[*udpListener]struct{})
+	}
+	n.udpListeners[list] = struct{}{}
+	n.udpDialer = nil
 
 	return list, nil
 }

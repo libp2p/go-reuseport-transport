@@ -1,4 +1,4 @@
-package tcpreuse
+package reusetransport
 
 import (
 	"context"
@@ -34,11 +34,15 @@ func (t *Transport) DialContext(ctx context.Context, raddr ma.Multiaddr) (manet.
 	var d dialer
 	switch network {
 	case "tcp4":
-		d = t.v4.getDialer(network)
+		d = t.v4.getTcpDialer(network)
+	case "udp4":
+		d = t.v4.getUdpDialer(network)
 	case "tcp6":
-		d = t.v6.getDialer(network)
+		d = t.v6.getTcpDialer(network)
+	case "udp6":
+		d = t.v6.getUdpDialer(network)
 	default:
-		return nil, ErrWrongProto
+		return nil, ErrWrongDialProto
 	}
 	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
@@ -52,20 +56,62 @@ func (t *Transport) DialContext(ctx context.Context, raddr ma.Multiaddr) (manet.
 	return maconn, nil
 }
 
-func (n *network) getDialer(network string) dialer {
-	n.mu.RLock()
-	d := n.dialer
-	n.mu.RUnlock()
-	if d == nil {
-		n.mu.Lock()
-		defer n.mu.Unlock()
+func (n *network) getTcpDialer(network string) dialer {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 
-		if n.dialer == nil {
-			n.dialer = n.makeDialer(network)
-		}
-		d = n.dialer
+	if n.tcpDialer != nil {
+		return n.tcpDialer
 	}
-	return d
+	n.tcpDialer = n.makeDialer(network)
+	return n.tcpDialer
+}
+
+func (n *network) getUdpDialer(network string) dialer {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	if n.udpDialer != nil {
+		return n.udpDialer
+	}
+	n.udpDialer = n.makeDialer(network)
+	return n.udpDialer
+}
+
+func tcpAddresses(listeners map[*listener]struct{}) []net.Addr {
+	result := make([]net.Addr, 0, len(listeners))
+	for l := range listeners {
+		result = append(result, l.Addr())
+	}
+	return result
+}
+
+func udpAddresses(listeners map[*udpListener]struct{}) []net.Addr {
+	result := make([]net.Addr, 0, len(listeners))
+	for l := range listeners {
+		result = append(result, l.Connection().LocalAddr()) // TODO make udpListener's interface comparable to listener
+	}
+	return result
+}
+
+func ipOf(addr net.Addr) net.IP {
+	if a, ok := addr.(*net.TCPAddr); ok {
+		return a.IP
+	}
+	if a, ok := addr.(*net.UDPAddr); ok {
+		return a.IP
+	}
+	panic("only support tcp and udp address")
+}
+
+func portOf(addr net.Addr) int {
+	if a, ok := addr.(*net.TCPAddr); ok {
+		return a.Port
+	}
+	if a, ok := addr.(*net.UDPAddr); ok {
+		return a.Port
+	}
+	panic("only support tcp and udp address")
 }
 
 func (n *network) makeDialer(network string) dialer {
@@ -75,26 +121,35 @@ func (n *network) makeDialer(network string) dialer {
 	}
 
 	var unspec net.IP
+	var listenAddrs []net.Addr
 	switch network {
 	case "tcp4":
 		unspec = net.IPv4zero
+		listenAddrs = tcpAddresses(n.tcpListeners)
+	case "udp4":
+		unspec = net.IPv4zero
+		listenAddrs = udpAddresses(n.udpListeners)
 	case "tcp6":
 		unspec = net.IPv6unspecified
+		listenAddrs = tcpAddresses(n.tcpListeners)
+	case "udp6":
+		unspec = net.IPv6unspecified
+		listenAddrs = udpAddresses(n.udpListeners)
 	default:
-		panic("invalid network: must be either tcp4 or tcp6")
+		panic("invalid network: must be either tcp4, tcp6, udp4 or udp6")
 	}
 
 	// How many ports are we listening on.
 	var port = 0
-	for l := range n.listeners {
-		newPort := l.Addr().(*net.TCPAddr).Port
+	for _, l := range listenAddrs {
+		newPort := portOf(l)
 		switch {
 		case newPort == 0: // Any port, ignore (really, we shouldn't get this case...).
 		case port == 0: // Haven't selected a port yet, choose this one.
 			port = newPort
 		case newPort == port: // Same as the selected port, continue...
 		default: // Multiple ports, use the multi dialer
-			return newMultiDialer(unspec, n.listeners)
+			return newMultiDialer(unspec, listenAddrs, network)
 		}
 	}
 
@@ -104,10 +159,20 @@ func (n *network) makeDialer(network string) dialer {
 	}
 
 	// One. Always dial from the single port we're listening on.
-	laddr := &net.TCPAddr{
-		IP:   unspec,
-		Port: port,
+	switch network {
+	case "tcp4", "tcp6":
+		laddr := &net.TCPAddr{
+			IP:   unspec,
+			Port: port,
+		}
+		return singleDialer{laddr}
+	case "udp4", "udp6":
+		laddr := &net.UDPAddr{
+			IP:   unspec,
+			Port: port,
+		}
+		return singleDialer{laddr}
+	default:
+		panic("invalid network: must be either tcp4, tcp6, udp4 or udp6")
 	}
-
-	return (*singleDialer)(laddr)
 }

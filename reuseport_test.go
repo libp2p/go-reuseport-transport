@@ -1,4 +1,4 @@
-package tcpreuse
+package reusetransport
 
 import (
 	"net"

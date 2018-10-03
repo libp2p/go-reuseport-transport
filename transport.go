@@ -1,4 +1,4 @@
-package tcpreuse
+package reusetransport
 
 import (
 	"errors"
@@ -9,17 +9,25 @@ import (
 
 var log = logging.Logger("reuseport-transport")
 
-// ErrWrongProto is returned when dialing a protocol other than tcp.
-var ErrWrongProto = errors.New("can only dial TCP over IPv4 or IPv6")
+// ErrWrongListenProto is returned when listen a protocol other than tcp.
+var ErrWrongListenProto = errors.New("can only listen TCP over IPv4 or IPv6")
 
-// Transport is a TCP reuse transport that reuses listener ports.
+// ErrWrongListenPacketProto is returned when listen a protocol other than udp.
+var ErrWrongListenPacketProto = errors.New("can only listen UDP packet over IPv4 or IPv6")
+
+// ErrWrongDialProto is returned when dialing a protocol we cannot handle
+var ErrWrongDialProto = errors.New("can only dial tcp4, tcp6, udp4, udp6")
+
+// Transport is a reuse transport that reuses listener ports.
 type Transport struct {
 	v4 network
 	v6 network
 }
 
 type network struct {
-	mu        sync.RWMutex
-	listeners map[*listener]struct{}
-	dialer    dialer
+	mu           sync.RWMutex
+	tcpListeners map[*listener]struct{}
+	udpListeners map[*udpListener]struct{}
+	tcpDialer    dialer
+	udpDialer    dialer
 }
