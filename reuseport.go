@@ -44,10 +44,9 @@ func reuseDial(ctx context.Context, laddr *net.TCPAddr, network, raddr string) (
 		return fallbackDialer.DialContext(ctx, network, raddr)
 	}
 
-	d := reuseport.Dialer{
-		D: net.Dialer{
-			LocalAddr: laddr,
-		},
+	d := net.Dialer{
+		LocalAddr: laddr,
+		Control:   reuseport.Control,
 	}
 
 	con, err := d.DialContext(ctx, network, raddr)
