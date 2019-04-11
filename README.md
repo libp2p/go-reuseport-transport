@@ -26,23 +26,12 @@ NOTE: Currently, we don't make any attempts to prevent two reusport transports f
 go get github.com/libp2p/go-reuseport-transport
 ```
 
-Note that `go-reuseport-transport` is packaged with Gx, so it is recommended to use Gx to install and use it (see the Usage section).
+This repo is [gomod](https://github.com/golang/go/wiki/Modules)-compatible, and users of
+go 1.11 and later with modules enabled will automatically pull the latest tagged release
+by referencing this package. Upgrades to future releases can be managed using `go get`,
+or by editing your `go.mod` file as [described by the gomod documentation](https://github.com/golang/go/wiki/Modules#how-to-upgrade-and-downgrade-dependencies).
 
-## Usage
-
-This module is packaged with [Gx](https://github.com/whyrusleeping/gx). In order to use it in your own project it is recommended that you:
-
-```sh
-go get -u github.com/whyrusleeping/gx
-go get -u github.com/whyrusleeping/gx-go
-cd <your-project-repository>
-gx init
-gx import github.com/libp2p/go-reuseport-transport
-gx install --global
-gx-go --rewrite
-```
-
-Please check [Gx](https://github.com/whyrusleeping/gx) and [Gx-go](https://github.com/whyrusleeping/gx-go) documentation for more information.
+## Current use in libp2p
 
 This package is *currently* used by the [go-tcp-transport](https://github.com/libp2p/go-tcp-transport) libp2p transport and will likely be used by more libp2p transports in the future.
 
