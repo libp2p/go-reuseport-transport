@@ -134,8 +134,6 @@ func TestGlobalPreferenceV4(t *testing.T) {
 	t.Logf("when listening on %v, should prefer %v over %v", loopbackV4, unspecV4, globalV4)
 	testPrefer(t, loopbackV4, unspecV4, globalV4)
 
-	t.Logf("when listening on %v, should prefer %v over %v", globalV4, unspecV4, globalV4)
-	testPrefer(t, globalV4, unspecV4, globalV4)
 	t.Logf("when listening on %v, should prefer %v over %v", globalV4, unspecV4, loopbackV4)
 	testPrefer(t, globalV4, unspecV4, loopbackV4)
 }
@@ -148,7 +146,6 @@ func TestGlobalPreferenceV6(t *testing.T) {
 	testPrefer(t, loopbackV6, loopbackV6, globalV6)
 	testPrefer(t, loopbackV6, unspecV6, globalV6)
 
-	testPrefer(t, globalV6, unspecV6, globalV6)
 	testPrefer(t, globalV6, unspecV6, loopbackV6)
 }
 

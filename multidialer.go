@@ -25,6 +25,12 @@ func randAddr(addrs []*net.TCPAddr) *net.TCPAddr {
 	return nil
 }
 
+// DialContext dials a target addr.
+// Dialing preference is
+// * If there is a listener on the local interface the OS expects to use to route towards addr, use that.
+// * If there is a listener on a loopback address, addr is loopback, use that.
+// * If there is a listener on an undefined address (0.0.0.0 or ::), use that.
+// * Use the fallback IP specified during construction, with a port that's already being listened on, if one exists.
 func (d *multiDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	tcpAddr, err := net.ResolveTCPAddr(network, addr)
 	if err != nil {
