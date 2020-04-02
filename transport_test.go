@@ -74,7 +74,7 @@ func dialOne(t *testing.T, tr *Transport, listener manet.Listener, expected ...i
 			return port
 		}
 	}
-	t.Errorf("dialed from %v, expected to dial from one of %v", c.LocalAddr(), expected)
+	t.Errorf("dialed %s from %v. expected to dial from port %v", listener.Multiaddr(), c.LocalAddr(), expected)
 	return 0
 }
 
@@ -129,10 +129,14 @@ func TestGlobalPreferenceV4(t *testing.T) {
 		t.Skip("no global IPv4 addresses configured")
 		return
 	}
+	t.Logf("when listening on %v, should prefer %v over %v", loopbackV4, loopbackV4, globalV4)
 	testPrefer(t, loopbackV4, loopbackV4, globalV4)
+	t.Logf("when listening on %v, should prefer %v over %v", loopbackV4, unspecV4, globalV4)
 	testPrefer(t, loopbackV4, unspecV4, globalV4)
 
+	t.Logf("when listening on %v, should prefer %v over %v", globalV4, unspecV4, globalV4)
 	testPrefer(t, globalV4, unspecV4, globalV4)
+	t.Logf("when listening on %v, should prefer %v over %v", globalV4, unspecV4, loopbackV4)
 	testPrefer(t, globalV4, unspecV4, loopbackV4)
 }
 
