@@ -38,11 +38,12 @@ func init() {
 	}
 }
 
-func acceptOne(t *testing.T, listener manet.Listener) <-chan struct{} {
+func acceptOne(t *testing.T, listener manet.Listener) <-chan interface{} {
 	t.Helper()
-	done := make(chan struct{})
+	done := make(chan interface{}, 1)
 	go func() {
 		defer close(done)
+		done <- nil
 		c, err := listener.Accept()
 		if err != nil {
 			t.Error(err)
@@ -50,6 +51,7 @@ func acceptOne(t *testing.T, listener manet.Listener) <-chan struct{} {
 		}
 		c.Close()
 	}()
+	<-done
 	return done
 }
 
@@ -72,7 +74,7 @@ func dialOne(t *testing.T, tr *Transport, listener manet.Listener, expected ...i
 			return port
 		}
 	}
-	t.Errorf("dialed from %d, expected to dial from one of %v", port, expected)
+	t.Errorf("dialed from %v, expected to dial from one of %v", c.LocalAddr(), expected)
 	return 0
 }
 

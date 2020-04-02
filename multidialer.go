@@ -2,6 +2,7 @@ package tcpreuse
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"net"
 
@@ -9,8 +10,8 @@ import (
 )
 
 type multiDialer struct {
-	listeners map[*listener]struct{}
-	fallback  net.IP
+	listeningAddresses []*net.TCPAddr
+	fallback           net.IP
 }
 
 func (d *multiDialer) Dial(network, addr string) (net.Conn, error) {
@@ -30,6 +31,9 @@ func (d *multiDialer) DialContext(ctx context.Context, network, addr string) (ne
 		return nil, err
 	}
 	ip := tcpAddr.IP
+	if !ip.IsLoopback() && !ip.IsGlobalUnicast() {
+		return nil, fmt.Errorf("undialable IP: %s", ip)
+	}
 
 	router, err := netroute.New()
 	if err != nil {
@@ -41,35 +45,39 @@ func (d *multiDialer) DialContext(ctx context.Context, network, addr string) (ne
 		return nil, err
 	}
 
+	loopbackCandidates := make([]*net.TCPAddr, 0)
 	unspecifiedCandidates := make([]*net.TCPAddr, 0)
 	existingPort := 0
-	for l := range d.listeners {
-		optAddr := l.Addr().(*net.TCPAddr)
+	for _, optAddr := range d.listeningAddresses {
 		if optAddr.IP.Equal(preferredSrcIP) {
 			return reuseDial(ctx, optAddr, network, addr)
 		}
-		if optAddr.IP.IsUnspecified() {
-			if optAddr.Network() == network {
-				unspecifiedCandidates = append([]*net.TCPAddr{optAddr}, unspecifiedCandidates...)
-			} else {
-				unspecifiedCandidates = append(unspecifiedCandidates, optAddr)
-			}
-		}
-		if optAddr.Network() == network {
+		if optAddr.IP.IsLoopback() {
+			loopbackCandidates = append(loopbackCandidates, optAddr)
+		} else if optAddr.IP.IsGlobalUnicast() && existingPort == 0 {
 			existingPort = optAddr.Port
+		} else if optAddr.IP.IsUnspecified() {
+			unspecifiedCandidates = append(unspecifiedCandidates, optAddr)
 		}
+	}
+	if ip.IsLoopback() && len(loopbackCandidates) > 0 {
+		return reuseDial(ctx, randAddr(loopbackCandidates), network, addr)
 	}
 	if len(unspecifiedCandidates) == 0 {
 		unspecifiedCandidates = []*net.TCPAddr{&net.TCPAddr{IP: d.fallback, Port: existingPort, Zone: ""}}
 	}
 
-	return reuseDial(ctx, unspecifiedCandidates[0], network, addr)
+	return reuseDial(ctx, randAddr(unspecifiedCandidates), network, addr)
 }
 
 func newMultiDialer(unspec net.IP, listeners map[*listener]struct{}) (m dialer) {
+	addrs := make([]*net.TCPAddr, 0)
+	for l := range listeners {
+		addrs = append(addrs, l.Addr().(*net.TCPAddr))
+	}
 	m = &multiDialer{
-		listeners: listeners,
-		fallback:  unspec,
+		listeningAddresses: addrs,
+		fallback:           unspec,
 	}
 	return
 }
