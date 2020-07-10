@@ -1,3 +1,5 @@
+// +build !plan9
+
 package tcpreuse
 
 import (
