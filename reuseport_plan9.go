@@ -5,6 +5,11 @@ import (
 	"os"
 )
 
+const (
+	EADDRINUSE   = "address in use"
+	ECONNREFUSED = "connection refused"
+)
+
 // reuseErrShouldRetry diagnoses whether to retry after a reuse error.
 // if we failed to bind, we should retry. if bind worked and this is a
 // real dial error (remote end didnt answer) then we should not retry.
@@ -29,9 +34,9 @@ func reuseErrShouldRetry(err error) bool {
 	}
 
 	switch e1.Err.Error() {
-	case "address in use":
+	case EADDRINUSE:
 		return true
-	case "connection refused":
+	case ECONNREFUSED:
 		return false
 	default:
 		return true // optimistically default to retry.
