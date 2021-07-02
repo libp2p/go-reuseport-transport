@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	ma "github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr-net"
+	manet "github.com/multiformats/go-multiaddr/net"
 )
 
 var loopbackV4, _ = ma.NewMultiaddr("/ip4/127.0.0.1/tcp/0")
