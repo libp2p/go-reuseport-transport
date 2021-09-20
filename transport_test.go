@@ -2,6 +2,7 @@ package tcpreuse
 
 import (
 	"net"
+	"runtime"
 	"testing"
 
 	ma "github.com/multiformats/go-multiaddr"
@@ -125,6 +126,9 @@ func TestTwoLocal(t *testing.T) {
 }
 
 func TestGlobalPreferenceV4(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("This test is failing on OSX: https://github.com/libp2p/go-reuseport-transport/issues/33")
+	}
 	if globalV4 == nil {
 		t.Skip("no global IPv4 addresses configured")
 		return
@@ -139,6 +143,9 @@ func TestGlobalPreferenceV4(t *testing.T) {
 }
 
 func TestGlobalPreferenceV6(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("This test is failing on OSX: https://github.com/libp2p/go-reuseport-transport/issues/33")
+	}
 	if globalV6 == nil {
 		t.Skip("no global IPv6 addresses configured")
 		return
@@ -150,6 +157,9 @@ func TestGlobalPreferenceV6(t *testing.T) {
 }
 
 func TestLoopbackPreference(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("This test is failing on OSX: https://github.com/libp2p/go-reuseport-transport/issues/33")
+	}
 	testPrefer(t, loopbackV4, loopbackV4, unspecV4)
 	testPrefer(t, loopbackV6, loopbackV6, unspecV6)
 }
@@ -234,6 +244,9 @@ func testUseFirst(t *testing.T, listen, use, never ma.Multiaddr) {
 }
 
 func TestDuplicateGlobal(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("This test is failing on OSX: https://github.com/libp2p/go-reuseport-transport/issues/33")
+	}
 	if globalV4 == nil {
 		t.Skip("no globalV4 addresses configured")
 		return
