@@ -7,29 +7,19 @@
 // It is recommended to set set SO_LINGER to 0 for all connections, otherwise
 // reusing the port may fail when re-dialing a recently closed connection.
 // See https://hea-www.harvard.edu/~fine/Tech/addrinuse.html for details.
+//
+// Deprecated: This package has moved into go-libp2p as a sub-package: github.com/libp2p/go-libp2p/p2p/net/reuseport.
 package tcpreuse
 
 import (
-	"errors"
-	"sync"
-
-	logging "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p/p2p/net/reuseport"
 )
 
-var log = logging.Logger("reuseport-transport")
-
 // ErrWrongProto is returned when dialing a protocol other than tcp.
-var ErrWrongProto = errors.New("can only dial TCP over IPv4 or IPv6")
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/reuseport.ErrWrongProto instead.
+var ErrWrongProto = reuseport.ErrWrongProto
 
 // Transport is a TCP reuse transport that reuses listener ports.
 // The zero value is safe to use.
-type Transport struct {
-	v4 network
-	v6 network
-}
-
-type network struct {
-	mu        sync.RWMutex
-	listeners map[*listener]struct{}
-	dialer    dialer
-}
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/reuseport.Transport instead.
+type Transport = reuseport.Transport
